@@ -28,12 +28,30 @@ MONTHS_ABBR = list(calendar.month_abbr)[1:]
 ABBR2NUM = {m.lower(): i for i, m in enumerate(MONTHS_ABBR, 1)}
 FULL2NUM = {m.lower(): i for i, m in enumerate(calendar.month_name[1:], 1)}
 
-def ask(prompt: str, valid=None):
+# ANSI style constants
+BOLD = "\033[1m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
+WORD_ALIASES = {
+    "yes": "y",
+    "y": "y",
+    "no": "n",
+    "n": "n",
+}
+
+def ask(prompt: str, valid=None, default: Optional[str] = None) -> str:
     while True:
-        val = input(prompt).strip()
-        if not valid or val.lower() in valid:
-            return val.lower()
-        print(f"Please enter one of: {', '.join(valid)}.")
+        val = input(prompt).strip().lower()
+        if not val and default is not None:
+            return default.lower()
+        resolved = WORD_ALIASES.get(val, val)
+        if not valid or resolved in valid or val in valid:
+            return resolved if (valid and resolved in valid) else val
+        options_str = ", ".join(valid)
+        print(f"{YELLOW}Please enter one of: {options_str}.{RESET}")
 
 def get_dir(prompt: str) -> Path:
     while True:
@@ -178,7 +196,7 @@ def process_all(files: List[Tuple[Path, datetime]], dest: Path, year: int, op: s
 def main():
     from prettytable import PrettyTable
 
-    print("=== Monthly Folder Manager + File Sorter (Year-select version) ===")
+    print(f"{BOLD}{CYAN}=== Monthly Folder Manager + File Sorter (Year-select version) ==={RESET}")
     base = get_dir("Base directory for 'All Month'-'Entered Year' folders: ")
 
     # Loop to allow sorting more files at end
@@ -200,7 +218,7 @@ def main():
         if not dated_files:
             print(f"\nNo files found in {src} matching year {year}.")
             # Option to retry a different year, rename folders if needed
-            retry = ask("Try with a different year? [y/n]: ", ['y', 'n'])
+            retry = ask("Try with a different year? [Y/n]: ", ['y', 'n'], default='y')
             if retry == "y":
                 new_year = ask_year()
                 if new_year != year:
@@ -215,7 +233,7 @@ def main():
         show_rows = 50
         print_file_table(dated_files, "Matched files", 0, show_rows)
         if len(dated_files) > show_rows:
-            see_all = ask(f"\nThere are {len(dated_files)} files. See all? [y/n]: ", ['y', 'n'])
+            see_all = ask(f"\nThere are {len(dated_files)} files. See all? [y/N]: ", ['y', 'n'], default='n')
             if see_all == "y":
                 print_file_table(dated_files, "All matched files", 0, len(dated_files))
 
@@ -228,7 +246,7 @@ def main():
             op = input("Do you want to MOVE or COPY files? [move/copy]: ").strip().lower()
 
         # Destination
-        if ask("\nSort to A) base dir or B) another dir? [a/b]: ", ["a", "b"]) == "a":
+        if ask("\nSort to A) base dir or B) another dir? [A/b]: ", ["a", "b"], default='a') == "a":
             target = base
         else:
             target = get_dir("Destination directory: ")
@@ -242,19 +260,19 @@ def main():
         show_ops = min(50, len(fileops))
         print_operation_table(fileops[:show_ops])
         if len(fileops) > show_ops:
-            see_all_ops = ask(f"\nShow all {len(fileops)} planned file operations? [y/n]: ", ["y","n"])
+            see_all_ops = ask(f"\nShow all {len(fileops)} planned file operations? [y/N]: ", ["y","n"], default='n')
             if see_all_ops == "y":
                 print_operation_table(fileops)
 
-        proceed = ask("\nProceed with file operation? [y/n]: ", ['y', 'n'])
+        proceed = ask("\nProceed with file operation? [Y/n]: ", ['y', 'n'], default='y')
         if proceed == "y":
             operations = process_all(dated_files, target, year, op)
-            print(f"\n✅ {len(operations)} files {'moved' if op=='move' else 'copied'} successfully!")
+            print(f"\n{GREEN}✅ {len(operations)} files {'moved' if op=='move' else 'copied'} successfully!{RESET}")
         else:
             print("Operation canceled.")
 
         # Repeat option
-        more = ask("\nDo you want to sort more files? [y/n]: ", ["y", "n"])
+        more = ask("\nDo you want to sort more files? [y/N]: ", ["y", "n"], default='n')
         if more == "y":
             prev_year = year
             continue
